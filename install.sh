@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install cyberterm from the latest GitHub release.
 #
-#   curl -fsSL https://raw.githubusercontent.com/cybercore-tech/cyberterm/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/cybercoretech/cyberterm/main/install.sh | sh
 #
 # Supported: Linux (x86_64, aarch64) and macOS (aarch64 / Apple Silicon).
 # Linux needs the usual desktop GL/X11/Wayland libraries already present
