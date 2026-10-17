@@ -34,7 +34,7 @@ pub const COLLECTIONS: &[Collection] = &[
     Collection {
         name: "cyberterm",
         title: "Cyberterm extras: games, movies, music, sub-cyber",
-        repo: "cybercore-tech/cyberterm",
+        repo: "cybercoretech/cyberterm",
         git_ref: None,
         prefix: "themes/",
         ext: ".json",

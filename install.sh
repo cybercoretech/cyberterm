@@ -10,7 +10,7 @@
 # capacity is currently too degraded to build one reliably in CI.
 set -eu
 
-REPO="cybercore-tech/cyberterm"
+REPO="cybercoretech/cyberterm"
 INSTALL_DIR="${CYBERTERM_INSTALL_DIR:-$HOME/.local/bin}"
 
 die() {
