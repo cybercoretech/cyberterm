@@ -1,12 +1,12 @@
 [package]
 name = "cyberterm"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 rust-version = "1.88"
 description = "A GPU terminal for developers: splits and sessions, command blocks, searchable history, AI help, inline images and Lua scripting"
 license = "MIT"
 repository = "https://github.com/cybercoretech/cyberterm"
-homepage = "https://cybercoretech.github.io/"
+homepage = "https://cybercoretech.github.io/cyberterm/"
 readme = "README.md"
 keywords = ["terminal", "terminal-emulator", "multiplexer", "gpu", "lua"]
 categories = ["command-line-utilities", "development-tools"]

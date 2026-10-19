@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.4.1 — 2026-10-18
+
+**Metadata:** point the published package homepage to the Cyberterm GitHub Page. No runtime or API changes.
+
 ## 0.4.0 — 2026-10-10
 
 **Parallel agents:** native flight logs for six agents, the agent home, the Tower, merge or discard, and several agents on one task.
