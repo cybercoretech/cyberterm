@@ -939,41 +939,68 @@ fn load_font_system(font: &FontSpec) -> FontSystem {
 /// Every file of a family (regular, bold, italic, ...) via `fc-list`,
 /// falling back to `fc-match`'s single best file for fuzzy names.
 fn font_files(family: &str) -> Vec<std::path::PathBuf> {
-    let run = |args: &[&str]| -> Vec<std::path::PathBuf> {
-        std::process::Command::new(args[0])
-            .args(&args[1..])
-            .output()
-            .ok()
-            .filter(|o| o.status.success())
-            .map(|o| {
-                String::from_utf8_lossy(&o.stdout)
-                    .lines()
-                    .map(str::trim)
-                    .filter(|l| !l.is_empty())
-                    .map(std::path::PathBuf::from)
-                    .collect()
-            })
-            .unwrap_or_default()
-    };
-    let files = run(&["fc-list", family, "-f", "%{file}\n"]);
-    if !files.is_empty() {
-        return files;
+    #[cfg(target_os = "android")]
+    {
+        let paths: &[&str] = match family {
+            "Noto Color Emoji" => &["/system/fonts/NotoColorEmoji.ttf"],
+            "Symbols Nerd Font Mono" => &[
+                "/system/fonts/NotoSansSymbols-Regular-Subsetted.ttf",
+                "/system/fonts/NotoSansSymbols-Regular-Subsetted2.ttf",
+            ],
+            _ => &["/system/fonts/DroidSansMono.ttf"],
+        };
+        return paths.iter().map(std::path::PathBuf::from).collect();
     }
-    font_files_matching(family)
+    #[cfg(not(target_os = "android"))]
+    {
+        let run = |args: &[&str]| -> Vec<std::path::PathBuf> {
+            std::process::Command::new(args[0])
+                .args(&args[1..])
+                .output()
+                .ok()
+                .filter(|o| o.status.success())
+                .map(|o| {
+                    String::from_utf8_lossy(&o.stdout)
+                        .lines()
+                        .map(str::trim)
+                        .filter(|l| !l.is_empty())
+                        .map(std::path::PathBuf::from)
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        let files = run(&["fc-list", family, "-f", "%{file}\n"]);
+        if !files.is_empty() {
+            return files;
+        }
+        font_files_matching(family)
+    }
 }
 
 /// fontconfig's single best file for a pattern (`"JetBrains Mono"`,
 /// `":charset=65e5"`).
 fn font_files_matching(pattern: &str) -> Vec<std::path::PathBuf> {
-    std::process::Command::new("fc-match")
-        .args(["-f", "%{file}", pattern])
-        .output()
-        .ok()
-        .filter(|o| o.status.success())
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-        .filter(|p| !p.is_empty())
-        .map(|p| vec![std::path::PathBuf::from(p)])
-        .unwrap_or_default()
+    #[cfg(target_os = "android")]
+    {
+        let path = if pattern.starts_with(":charset=") {
+            "/system/fonts/NotoSansSymbols-Regular-Subsetted.ttf"
+        } else {
+            "/system/fonts/DroidSansMono.ttf"
+        };
+        return vec![std::path::PathBuf::from(path)];
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        std::process::Command::new("fc-match")
+            .args(["-f", "%{file}", pattern])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .filter(|p| !p.is_empty())
+            .map(|p| vec![std::path::PathBuf::from(p)])
+            .unwrap_or_default()
+    }
 }
 
 /// Cell size from the font's real advance width, so column alignment is
