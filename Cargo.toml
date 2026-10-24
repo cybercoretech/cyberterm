@@ -10,6 +10,7 @@ homepage = "https://cybercoretech.github.io/cyberterm/"
 readme = "README.md"
 keywords = ["terminal", "terminal-emulator", "multiplexer", "gpu", "lua"]
 categories = ["command-line-utilities", "development-tools"]
+
 # Only what the build needs (themes/popular is bundled; the other theme
 # collections are installed on request with `cyberterm +themes`).
 include = [
@@ -23,21 +24,23 @@ include = [
     "CHANGELOG.md",
 ]
 
+[lib]
+name = "cyberterm_engine"
+path = "src/lib.rs"
+
 [dependencies]
 # --- Core Terminal Engine & OS Primitives ---
 alacritty_terminal = "0.26.0"   # Core matrix layout state, history buffer, and models --
                                  # also provides the real tty::new (PTY alloc + shell fork/exec)
                                  # and event_loop::EventLoop (PTY read -> vte -> Term wiring)
                                  # this project now uses directly instead of hand-rolling.
-winit = "0.30.13"               # Cross-platform window surface manager
+winit = { version = "0.30.13", default-features = false, features = ["rwh_06"] } # Cross-platform window + Android NativeActivity surface
 # futures is required to cleanly execute wgpu's async initialization methods
 futures = "0.3"
 wgpu = "24.0.0"                 # Modern low-overhead native GPU interface
 glyphon = "0.8"                 # Real GPU text rendering (cosmic-text + etagere), wgpu ^24 --
                                  # verified against crates.io before pinning, matches wgpu above
 parking_lot = "0.12"            # Low-overhead synchronization mutex primitive
-arboard = { version = "3", features = ["wayland-data-control"] } # Clipboard + primary selection,
-                                 # native on Wayland (wlr data-control), X11 otherwise
 polling = "3"                   # Same poller alacritty_terminal's PTY loop registers with --
                                  # needed to implement its EventedReadWrite for the OSC tap
                                  # wrapper in shell/tap.rs
@@ -60,5 +63,15 @@ mlua = { version = "0.10", features = ["serialize", "lua54", "vendored"] }
 # Wayland clipboard + primary selection through the window's own
 # connection (what Alacritty uses). Setting the primary selection via the
 # data-control protocol, as arboard does, doesn't stick on Hyprland.
-[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+[target.'cfg(target_os = "linux")'.dependencies]
+arboard = { version = "3", features = ["wayland-data-control"] }
 smithay-clipboard = "0.7"
+winit = { version = "0.30.13", features = ["x11", "wayland", "wayland-dlopen", "wayland-csd-adwaita"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+ndk-context = "0.1"
+jni = "0.22"
+winit = { version = "0.30.13", features = ["android-native-activity"] }
+
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+arboard = "3"

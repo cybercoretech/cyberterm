@@ -4,6 +4,72 @@
 
 use super::*;
 
+#[cfg(target_os = "android")]
+fn key_without_modifiers(event: &KeyEvent) -> Key {
+    use winit::keyboard::KeyCode::*;
+    let PhysicalKey::Code(code) = event.physical_key else {
+        return event.logical_key.clone();
+    };
+    let base = match code {
+        KeyA => 'a',
+        KeyB => 'b',
+        KeyC => 'c',
+        KeyD => 'd',
+        KeyE => 'e',
+        KeyF => 'f',
+        KeyG => 'g',
+        KeyH => 'h',
+        KeyI => 'i',
+        KeyJ => 'j',
+        KeyK => 'k',
+        KeyL => 'l',
+        KeyM => 'm',
+        KeyN => 'n',
+        KeyO => 'o',
+        KeyP => 'p',
+        KeyQ => 'q',
+        KeyR => 'r',
+        KeyS => 's',
+        KeyT => 't',
+        KeyU => 'u',
+        KeyV => 'v',
+        KeyW => 'w',
+        KeyX => 'x',
+        KeyY => 'y',
+        KeyZ => 'z',
+        Digit0 | Numpad0 => '0',
+        Digit1 | Numpad1 => '1',
+        Digit2 | Numpad2 => '2',
+        Digit3 | Numpad3 => '3',
+        Digit4 | Numpad4 => '4',
+        Digit5 | Numpad5 => '5',
+        Digit6 | Numpad6 => '6',
+        Digit7 | Numpad7 => '7',
+        Digit8 | Numpad8 => '8',
+        Digit9 | Numpad9 => '9',
+        Backquote => '`',
+        Backslash => '\\',
+        BracketLeft => '[',
+        BracketRight => ']',
+        Comma | NumpadComma => ',',
+        Equal | NumpadEqual => '=',
+        Minus | NumpadSubtract => '-',
+        Period | NumpadDecimal => '.',
+        Quote => '\'',
+        Semicolon => ';',
+        Slash | NumpadDivide => '/',
+        NumpadAdd => '+',
+        NumpadMultiply => '*',
+        _ => return event.logical_key.clone(),
+    };
+    Key::Character(base.to_string().into())
+}
+
+#[cfg(not(target_os = "android"))]
+fn key_without_modifiers(event: &KeyEvent) -> Key {
+    event.key_without_modifiers()
+}
+
 impl App {
     // ------------------------------------------------------------------
     // Keyboard
@@ -77,7 +143,7 @@ impl App {
             return;
         }
 
-        let base = event.key_without_modifiers();
+        let base = key_without_modifiers(&event);
         let key = &event.logical_key;
         if state != KeyState::Release && self.leader_pending {
             // Waiting for the key after the leader. Modifiers alone (the

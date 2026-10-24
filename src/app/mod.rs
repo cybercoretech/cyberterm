@@ -22,8 +22,11 @@ use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{ElementState, Ime, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy};
 use winit::keyboard::{Key, ModifiersState, NamedKey, PhysicalKey};
+#[cfg(target_os = "android")]
+use winit::platform::android::ActiveEventLoopExtAndroid;
+#[cfg(not(target_os = "android"))]
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(target_os = "linux")]
 use winit::platform::wayland::WindowAttributesExtWayland;
 use winit::window::{CursorIcon, UserAttentionType, Window, WindowId};
 
@@ -278,6 +281,8 @@ pub struct App {
     mods: ModifiersState,
     window_focused: bool,
     mouse: MouseState,
+    #[cfg(target_os = "android")]
+    android_touch: Option<(PhysicalPosition<f64>, PhysicalPosition<f64>, bool)>,
     blink_visible: bool,
     blink_last: Instant,
     ime_preedit: Option<String>,
@@ -376,6 +381,8 @@ impl App {
             mods: ModifiersState::empty(),
             window_focused: true,
             mouse: MouseState::default(),
+            #[cfg(target_os = "android")]
+            android_touch: None,
             clipboard: Some(ClipboardManager::new()),
             blink_visible: true,
             blink_last: Instant::now(),
@@ -1260,7 +1267,7 @@ impl App {
         // Real Wayland app_id / X11 WM_CLASS -- without this, compositors
         // (Hyprland windowrules, taskbars, alt-tab) have no stable
         // identifier to match cyberterm's window against.
-        #[cfg(all(unix, not(target_os = "macos")))]
+        #[cfg(target_os = "linux")]
         let window_attributes = window_attributes.with_name("cyberterm", "cyberterm");
 
         let window = Arc::new(
@@ -1356,6 +1363,15 @@ impl Drop for App {
 }
 
 impl ApplicationHandler<UserEvent> for App {
+    fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
+        // Android destroys the native surface while paused. Drop wgpu's
+        // surface before returning; `resumed` will recreate it.
+        #[cfg(target_os = "android")]
+        {
+            self.gpu = None;
+        }
+    }
+
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.gpu.is_some() {
             return;
@@ -1365,6 +1381,8 @@ impl ApplicationHandler<UserEvent> for App {
             event_loop.exit();
             return;
         }
+        #[cfg(target_os = "android")]
+        event_loop.android_app().show_soft_input(true);
         if self.config.daemon.enabled {
             match self.start_daemon_session() {
                 Ok(true) => return,
@@ -1481,6 +1499,8 @@ impl ApplicationHandler<UserEvent> for App {
             }
             WindowEvent::MouseInput { state, button, .. } => self.on_mouse_input(state, button),
             WindowEvent::MouseWheel { delta, .. } => self.on_wheel(delta),
+            #[cfg(target_os = "android")]
+            WindowEvent::Touch(touch) => self.on_android_touch(touch.phase, touch.location),
             WindowEvent::RedrawRequested => self.draw(),
             _ => {}
         }
@@ -1559,6 +1579,45 @@ impl ApplicationHandler<UserEvent> for App {
         }
 
         event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+    }
+}
+
+#[cfg(target_os = "android")]
+impl App {
+    fn on_android_touch(
+        &mut self,
+        phase: winit::event::TouchPhase,
+        position: PhysicalPosition<f64>,
+    ) {
+        use winit::event::{ElementState, MouseButton, TouchPhase};
+        match phase {
+            TouchPhase::Started => {
+                self.android_touch = Some((position, position, false));
+                self.mouse.pos = position;
+            }
+            TouchPhase::Moved => {
+                if let Some((start, last, _)) = self.android_touch {
+                    let delta_y = position.y - last.y;
+                    let moved = (position.x - start.x).hypot(position.y - start.y) > 12.0;
+                    self.android_touch = Some((start, position, moved));
+                    self.mouse.pos = position;
+                    if moved {
+                        self.on_wheel(MouseScrollDelta::PixelDelta(PhysicalPosition::new(
+                            0.0, delta_y,
+                        )));
+                    }
+                }
+            }
+            TouchPhase::Ended | TouchPhase::Cancelled => {
+                if let Some((_, _, moved)) = self.android_touch.take() {
+                    if !moved && phase == TouchPhase::Ended {
+                        self.on_cursor_moved(position);
+                        self.on_mouse_input(ElementState::Pressed, MouseButton::Left);
+                        self.on_mouse_input(ElementState::Released, MouseButton::Left);
+                    }
+                }
+            }
+        }
     }
 }
 
