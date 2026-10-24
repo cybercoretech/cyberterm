@@ -65,6 +65,10 @@ pub fn run_android(app: winit::platform::android::activity::AndroidApp) {
         eprintln!("cyberterm: cannot initialize app storage: {error}");
         return;
     }
+    if let Err(error) = std::env::set_current_dir(&home) {
+        eprintln!("cyberterm: cannot enter private app storage: {error}");
+        return;
+    }
     std::env::set_var("HOME", &home);
     std::env::set_var("USER", "cyberterm");
     std::env::set_var("SHELL", "/system/bin/sh");
