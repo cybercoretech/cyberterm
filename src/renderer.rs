@@ -564,8 +564,16 @@ impl TermRenderer {
                         |f| matches!(&f.source, glyphon::fontdb::Source::File(p) if *p == path),
                     );
                 if !already {
-                    let _ = self.font_system.db_mut().load_font_file(&path);
-                    covered = true;
+                    #[cfg(target_os = "android")]
+                    if let Ok(data) = std::fs::read(&path) {
+                        self.font_system.db_mut().load_font_data(data);
+                        covered = true;
+                    }
+                    #[cfg(not(target_os = "android"))]
+                    {
+                        let _ = self.font_system.db_mut().load_font_file(&path);
+                        covered = true;
+                    }
                 }
             }
         }
@@ -915,6 +923,13 @@ fn load_font_system(font: &FontSpec) -> FontSystem {
     {
         let before: HashSet<_> = db.faces().map(|f| f.id).collect();
         for path in font_files(family) {
+            #[cfg(target_os = "android")]
+            if let Ok(data) = std::fs::read(&path) {
+                // Android exposes these files for reading but may deny the
+                // file-backed mmap used by fontdb's loader.
+                db.load_font_data(data);
+            }
+            #[cfg(not(target_os = "android"))]
             let _ = db.load_font_file(&path);
         }
         if i == 0 {
