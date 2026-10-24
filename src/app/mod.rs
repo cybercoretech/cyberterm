@@ -467,7 +467,12 @@ impl App {
             family: f.family.clone(),
             fallback: f.fallback.clone(),
             // Points at 96 DPI, times the monitor's scale factor.
-            size_px: (self.font_size * 96.0 / 72.0 * scale as f32).max(4.0),
+            size_px: (self.font_size
+                * 96.0
+                / 72.0
+                * scale as f32
+                * if cfg!(target_os = "android") { 0.85 } else { 1.0 })
+            .max(4.0),
             line_height: f.line_height.clamp(0.8, 3.0),
             ligatures: f.ligatures,
         }
@@ -1275,6 +1280,7 @@ impl App {
                 .create_window(window_attributes)
                 .map_err(|e| format!("failed to create window: {e}"))?,
         );
+        #[cfg(not(target_os = "android"))]
         window.set_ime_allowed(true);
         if let Some(clipboard) = &mut self.clipboard {
             clipboard.attach(&window);
@@ -1594,6 +1600,9 @@ impl App {
             TouchPhase::Started => {
                 self.android_touch = Some((position, position, false));
                 self.mouse.pos = position;
+                if let Some(gpu) = &self.gpu {
+                    gpu.window.set_ime_allowed(true);
+                }
             }
             TouchPhase::Moved => {
                 if let Some((start, last, _)) = self.android_touch {
