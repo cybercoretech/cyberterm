@@ -1292,6 +1292,8 @@ impl App {
         );
         #[cfg(not(target_os = "android"))]
         window.set_ime_allowed(true);
+        #[cfg(target_os = "android")]
+        window.set_ime_allowed(false);
         if let Some(clipboard) = &mut self.clipboard {
             clipboard.attach(&window);
         }
