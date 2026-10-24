@@ -22,8 +22,11 @@ use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{ElementState, Ime, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy};
 use winit::keyboard::{Key, ModifiersState, NamedKey, PhysicalKey};
+#[cfg(target_os = "android")]
+use winit::platform::android::ActiveEventLoopExtAndroid;
+#[cfg(not(target_os = "android"))]
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(target_os = "linux")]
 use winit::platform::wayland::WindowAttributesExtWayland;
 use winit::window::{CursorIcon, UserAttentionType, Window, WindowId};
 
@@ -1260,7 +1263,7 @@ impl App {
         // Real Wayland app_id / X11 WM_CLASS -- without this, compositors
         // (Hyprland windowrules, taskbars, alt-tab) have no stable
         // identifier to match cyberterm's window against.
-        #[cfg(all(unix, not(target_os = "macos")))]
+        #[cfg(target_os = "linux")]
         let window_attributes = window_attributes.with_name("cyberterm", "cyberterm");
 
         let window = Arc::new(
@@ -1356,6 +1359,15 @@ impl Drop for App {
 }
 
 impl ApplicationHandler<UserEvent> for App {
+    fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
+        // Android destroys the native surface while paused. Drop wgpu's
+        // surface before returning; `resumed` will recreate it.
+        #[cfg(target_os = "android")]
+        {
+            self.gpu = None;
+        }
+    }
+
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.gpu.is_some() {
             return;
@@ -1365,6 +1377,8 @@ impl ApplicationHandler<UserEvent> for App {
             event_loop.exit();
             return;
         }
+        #[cfg(target_os = "android")]
+        event_loop.android_app().show_soft_input(true);
         if self.config.daemon.enabled {
             match self.start_daemon_session() {
                 Ok(true) => return,
