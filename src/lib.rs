@@ -1,5 +1,6 @@
 // Cyberterm - Fully customizable terminal written in rust.
 // The ultimate, scriptable, vintage-meets-modern terminal engine.
+#![cfg_attr(target_os = "android", allow(dead_code))]
 
 mod agent;
 mod agent_home;

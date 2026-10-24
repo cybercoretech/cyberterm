@@ -281,6 +281,8 @@ pub struct App {
     mods: ModifiersState,
     window_focused: bool,
     mouse: MouseState,
+    #[cfg(target_os = "android")]
+    android_touch: Option<(PhysicalPosition<f64>, PhysicalPosition<f64>, bool)>,
     blink_visible: bool,
     blink_last: Instant,
     ime_preedit: Option<String>,
@@ -379,6 +381,8 @@ impl App {
             mods: ModifiersState::empty(),
             window_focused: true,
             mouse: MouseState::default(),
+            #[cfg(target_os = "android")]
+            android_touch: None,
             clipboard: Some(ClipboardManager::new()),
             blink_visible: true,
             blink_last: Instant::now(),
@@ -1495,6 +1499,8 @@ impl ApplicationHandler<UserEvent> for App {
             }
             WindowEvent::MouseInput { state, button, .. } => self.on_mouse_input(state, button),
             WindowEvent::MouseWheel { delta, .. } => self.on_wheel(delta),
+            #[cfg(target_os = "android")]
+            WindowEvent::Touch(touch) => self.on_android_touch(touch.phase, touch.location),
             WindowEvent::RedrawRequested => self.draw(),
             _ => {}
         }
@@ -1573,6 +1579,45 @@ impl ApplicationHandler<UserEvent> for App {
         }
 
         event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+    }
+}
+
+#[cfg(target_os = "android")]
+impl App {
+    fn on_android_touch(
+        &mut self,
+        phase: winit::event::TouchPhase,
+        position: PhysicalPosition<f64>,
+    ) {
+        use winit::event::{ElementState, MouseButton, TouchPhase};
+        match phase {
+            TouchPhase::Started => {
+                self.android_touch = Some((position, position, false));
+                self.mouse.pos = position;
+            }
+            TouchPhase::Moved => {
+                if let Some((start, last, _)) = self.android_touch {
+                    let delta_y = position.y - last.y;
+                    let moved = (position.x - start.x).hypot(position.y - start.y) > 12.0;
+                    self.android_touch = Some((start, position, moved));
+                    self.mouse.pos = position;
+                    if moved {
+                        self.on_wheel(MouseScrollDelta::PixelDelta(PhysicalPosition::new(
+                            0.0, delta_y,
+                        )));
+                    }
+                }
+            }
+            TouchPhase::Ended | TouchPhase::Cancelled => {
+                if let Some((_, _, moved)) = self.android_touch.take() {
+                    if !moved && phase == TouchPhase::Ended {
+                        self.on_cursor_moved(position);
+                        self.on_mouse_input(ElementState::Pressed, MouseButton::Left);
+                        self.on_mouse_input(ElementState::Released, MouseButton::Left);
+                    }
+                }
+            }
+        }
     }
 }
 
