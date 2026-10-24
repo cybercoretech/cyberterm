@@ -500,22 +500,32 @@ impl App {
     fn areas(&self, gpu: &Gpu) -> (Option<Rect>, Rect) {
         let pad = self.padding(gpu);
         let (w, h) = (gpu.config.width as f32, gpu.config.height as f32);
+        #[cfg(target_os = "android")]
+        let (safe_top, safe_bottom) = {
+            let scale = gpu.window.scale_factor() as f32;
+            // NativeActivity's surface spans under Android's system bars on
+            // recent Android releases. Keep terminal text and tab controls
+            // inside the tappable area, with a little breathing room.
+            (40.0 * scale, 32.0 * scale)
+        };
+        #[cfg(not(target_os = "android"))]
+        let (safe_top, safe_bottom) = (0.0, 0.0);
         let bar_h = gpu.renderer.cell_size().1;
         let bar = self.tab_bar_visible().then_some(Rect {
             x: pad,
-            y: pad,
+            y: pad + safe_top,
             w: (w - 2.0 * pad).max(1.0),
             h: bar_h,
         });
         let top = match bar {
             Some(b) => b.y + b.h + pad,
-            None => pad,
+            None => pad + safe_top,
         };
         let content = Rect {
             x: pad,
             y: top,
             w: (w - 2.0 * pad).max(1.0),
-            h: (h - top - pad).max(1.0),
+            h: (h - top - safe_bottom - pad).max(1.0),
         };
         (bar, content)
     }
